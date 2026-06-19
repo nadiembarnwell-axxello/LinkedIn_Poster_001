@@ -166,7 +166,7 @@ if template_file and new_photo_file:
     try:
         template = Image.open(template_file).convert("RGBA")
         
-        # 🛡️ CLOUD SAFETY VALVE: If the base template is massive, cap it to prevent server crashes
+        # 🛡️ CLOUD SAFETY VALVE: Capping excessive resolutions to secure workspace memory
         if template.width > 2000:
             t_w = 2000
             t_h = int(template.height * (t_w / template.width))
@@ -178,17 +178,20 @@ if template_file and new_photo_file:
         if "cached_photo_id" not in st.session_state or st.session_state.cached_photo_id != current_photo_id:
             raw_photo = Image.open(new_photo_file).convert("RGBA")
             
-            # 🛡️ PORTRAIT SAFETY VALVE: Downscale before AI engine processing to protect server memory
-            if raw_photo.width > 1200:
-                p_w = 1200
+            if raw_photo.width > 1000:
+                p_w = 1000
                 p_h = int(raw_photo.height * (p_w / raw_photo.width))
                 raw_photo = raw_photo.resize((p_w, p_h), Image.Resampling.LANCZOS)
                 
             if enable_bg_removal:
                 with col_preview:
-                    with st.spinner("🤖 Processing background isolation models..."):
-                        from rembg import remove 
-                        processed_subject = remove(raw_photo)
+                    with st.spinner("🤖 Executing lightweight background extractor module..."):
+                        # 🔥 STABILITY FIX: Initialize highly efficient session using u2netp
+                        from rembg import remove, new_session 
+                        if "rembg_session" not in st.session_state:
+                            st.session_state.rembg_session = new_session("u2netp")
+                        
+                        processed_subject = remove(raw_photo, session=st.session_state.rembg_session)
             else:
                 processed_subject = raw_photo
             
@@ -256,7 +259,6 @@ if template_file and new_photo_file:
         
         final_output = canvas.convert("RGB")
         
-        # 5. Fixed-Viewport Live Delivery Screen Frame Panel
         with col_preview:
             st.subheader("🖥️ Production Canvas Preview")
             st.image(final_output, width='stretch')
