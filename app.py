@@ -1,6 +1,3 @@
-Here is the complete, fully optimized production script for your **Axxello Corporate Onboarding Studio**.
-
-This code combines all of your required features: the automated header-erasing mask, the instant zero-lag AI background cache, edge sharpening, your customized text field initializers, and the locked arch crop boundary position.
 
 ### The Complete Code (`app.py`)
 
