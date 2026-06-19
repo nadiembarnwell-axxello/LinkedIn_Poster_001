@@ -165,15 +165,28 @@ with col_controls:
 if template_file and new_photo_file:
     try:
         template = Image.open(template_file).convert("RGBA")
-        t_width, t_height = template.size
         
+        # 🛡️ CLOUD SAFETY VALVE: If the base template is massive, cap it to prevent server crashes
+        if template.width > 2000:
+            t_w = 2000
+            t_h = int(template.height * (t_w / template.width))
+            template = template.resize((t_w, t_h), Image.Resampling.LANCZOS)
+            
+        t_width, t_height = template.size
         current_photo_id = f"{new_photo_file.name}_{new_photo_file.size}"
         
         if "cached_photo_id" not in st.session_state or st.session_state.cached_photo_id != current_photo_id:
             raw_photo = Image.open(new_photo_file).convert("RGBA")
+            
+            # 🛡️ PORTRAIT SAFETY VALVE: Downscale before AI engine processing to protect server memory
+            if raw_photo.width > 1200:
+                p_w = 1200
+                p_h = int(raw_photo.height * (p_w / raw_photo.width))
+                raw_photo = raw_photo.resize((p_w, p_h), Image.Resampling.LANCZOS)
+                
             if enable_bg_removal:
                 with col_preview:
-                    with st.spinner("🤖 Extracting background... (Note: First-time run on the cloud will take ~60s to sync AI dependencies)"):
+                    with st.spinner("🤖 Processing background isolation models..."):
                         from rembg import remove 
                         processed_subject = remove(raw_photo)
             else:
