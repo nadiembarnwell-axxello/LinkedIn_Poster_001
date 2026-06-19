@@ -166,7 +166,7 @@ if template_file and new_photo_file:
     try:
         template = Image.open(template_file).convert("RGBA")
         
-        # 🛡️ CLOUD SAFETY VALVE: Capping excessive resolutions to secure workspace memory
+        # Capping massive resolutions to secure cloud memory
         if template.width > 2000:
             t_w = 2000
             t_h = int(template.height * (t_w / template.width))
@@ -185,13 +185,16 @@ if template_file and new_photo_file:
                 
             if enable_bg_removal:
                 with col_preview:
-                    with st.spinner("🤖 Executing lightweight background extractor module..."):
-                        # 🔥 STABILITY FIX: Initialize highly efficient session using u2netp
-                        from rembg import remove, new_session 
-                        if "rembg_session" not in st.session_state:
-                            st.session_state.rembg_session = new_session("u2netp")
-                        
-                        processed_subject = remove(raw_photo, session=st.session_state.rembg_session)
+                    with st.spinner("🤖 Executing background extractor..."):
+                        try:
+                            from rembg import remove, new_session 
+                            if "rembg_session" not in st.session_state:
+                                st.session_state.rembg_session = new_session("u2netp")
+                            processed_subject = remove(raw_photo, session=st.session_state.rembg_session)
+                        except Exception as ai_err:
+                            st.error(f"⚠️ AI Background Engine threw an error: {ai_err}")
+                            st.info("💡 Processing with original background instead to prevent freezing.")
+                            processed_subject = raw_photo
             else:
                 processed_subject = raw_photo
             
