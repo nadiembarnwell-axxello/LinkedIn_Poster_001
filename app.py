@@ -163,102 +163,109 @@ with col_controls:
 
 # 4. Processing & Composite Engine Pipeline
 if template_file and new_photo_file:
-    template = Image.open(template_file).convert("RGBA")
-    t_width, t_height = template.size
-    
-    current_photo_id = f"{new_photo_file.name}_{new_photo_file.size}"
-    
-    if "cached_photo_id" not in st.session_state or st.session_state.cached_photo_id != current_photo_id:
-        raw_photo = Image.open(new_photo_file).convert("RGBA")
-        if enable_bg_removal:
-            with col_preview:
-                with st.spinner("🤖 Initializing AI background isolation engines..."):
-                    # 🔥 LAZY IMPORT: Keeps the web app from loading blank on boot
-                    from rembg import remove 
-                    processed_subject = remove(raw_photo)
-        else:
-            processed_subject = raw_photo
+    # Use a solid try-except handler so image crashes display visibly on-screen
+    try:
+        template = Image.open(template_file).convert("RGBA")
+        t_width, t_height = template.size
         
-        st.session_state.processed_photo = processed_subject
-        st.session_state.cached_photo_id = current_photo_id
-    else:
-        processed_subject = st.session_state.processed_photo
-
-    orig_w, orig_h = processed_subject.size
-    
-    target_width = int((t_width * 0.55) * scale_factor)
-    target_height = int((orig_h * (target_width / orig_w)))
-    resized_subject = processed_subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
-    
-    r, g, b, a = resized_subject.split()
-    sharp_alpha_lut = [255 if x >= edge_sharpness else 0 for x in range(256)]
-    a = a.point(sharp_alpha_lut)
-    resized_subject = Image.merge("RGBA", (r, g, b, a))
-    
-    paste_x = int((t_width - target_width) / 2) + offset_x
-    paste_y = int(t_height - target_height) + offset_y 
-    
-    absolute_crop_y = int(t_height * (LOCKED_CROP_PCT / 100))
-    current_image_bottom = paste_y + target_height
-    
-    if current_image_bottom > absolute_crop_y:
-        allowed_height = absolute_crop_y - paste_y
-        if allowed_height > 0:
-            resized_subject = resized_subject.crop((0, 0, target_width, allowed_height))
-        else:
-            resized_subject = resized_subject.crop((0, 0, 1, 1))
+        current_photo_id = f"{new_photo_file.name}_{new_photo_file.size}"
+        
+        if "cached_photo_id" not in st.session_state or st.session_state.cached_photo_id != current_photo_id:
+            raw_photo = Image.open(new_photo_file).convert("RGBA")
+            if enable_bg_removal:
+                with col_preview:
+                    # Inform users transparently if the model downloads on the very first upload pass
+                    with st.spinner("🤖 Extracting background... (Note: First-time run on the cloud will take ~60s to sync AI dependencies)"):
+                        from rembg import remove 
+                        processed_subject = remove(raw_photo)
+            else:
+                processed_subject = raw_photo
             
-    canvas = Image.new("RGBA", template.size)
-    canvas.paste(template, (0, 0))
-    canvas.paste(resized_subject, (paste_x, paste_y), resized_subject)
-    
-    draw = ImageDraw.Draw(canvas)
-    
-    bg_color_sample = template.getpixel((10, 10))
-    mask_width = int(t_width * 0.65)
-    mask_height = int(t_height * 0.082)
-    draw.rectangle([0, 0, mask_width, mask_height], fill=bg_color_sample)
-    
-    base_font_unit = int(t_height / 1000)
-    
-    font_welcome = get_custom_font("regular", size=base_font_unit * 42)
-    font_name = get_custom_font("bold", size=base_font_unit * 38)
-    font_role = get_custom_font("regular", size=base_font_unit * 23)
-    font_qual = get_custom_font("italic", size=base_font_unit * 21)
-    
-    start_x = int(t_width * (text_x_pct / 100))
-    start_y = int(t_height * (text_y_pct / 100))
-    w_start_x = int(t_width * (welcome_x_pct / 100))
-    w_start_y = int(t_height * (welcome_y_pct / 100))
-    
-    line_spacing_1 = int(base_font_unit * 46)
-    line_spacing_2 = int(base_font_unit * 28)
-    
-    text_color = (31, 41, 55, 255)
-    
-    draw.text((w_start_x, w_start_y), user_welcome, font=font_welcome, fill=text_color)
-    draw.text((start_x, start_y), user_name, font=font_name, fill=text_color)
-    draw.text((start_x, start_y + line_spacing_1), user_role, font=font_role, fill=text_color)
-    draw.text((start_x, start_y + line_spacing_1 + line_spacing_2), user_qual, font=font_qual, fill=text_color)
-    
-    final_output = canvas.convert("RGB")
-    
-    with col_preview:
-        st.subheader("🖥️ Production Canvas Preview")
-        st.image(final_output, use_container_width=True)
+            st.session_state.processed_photo = processed_subject
+            st.session_state.cached_photo_id = current_photo_id
+        else:
+            processed_subject = st.session_state.processed_photo
+
+        orig_w, orig_h = processed_subject.size
         
-        buffer = io.BytesIO()
-        final_output.save(buffer, format="JPEG", quality=98)
-        byte_arr = buffer.getvalue()
+        target_width = int((t_width * 0.55) * scale_factor)
+        target_height = int((orig_h * (target_width / orig_w)))
+        resized_subject = processed_subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
         
-        st.write("")
-        st.download_button(
-            label="📥 Download Production Onboarding Asset",
-            data=byte_arr,
-            file_name=f"onboarding_{user_name.replace(' ', '_')}.jpg",
-            mime="image/jpeg",
-            use_container_width=True
-        )
+        r, g, b, a = resized_subject.split()
+        sharp_alpha_lut = [255 if x >= edge_sharpness else 0 for x in range(256)]
+        a = a.point(sharp_alpha_lut)
+        resized_subject = Image.merge("RGBA", (r, g, b, a))
+        
+        paste_x = int((t_width - target_width) / 2) + offset_x
+        paste_y = int(t_height - target_height) + offset_y 
+        
+        absolute_crop_y = int(t_height * (LOCKED_CROP_PCT / 100))
+        current_image_bottom = paste_y + target_height
+        
+        if current_image_bottom > absolute_crop_y:
+            allowed_height = absolute_crop_y - paste_y
+            if allowed_height > 0:
+                resized_subject = resized_subject.crop((0, 0, target_width, allowed_height))
+            else:
+                resized_subject = resized_subject.crop((0, 0, 1, 1))
+                
+        canvas = Image.new("RGBA", template.size)
+        canvas.paste(template, (0, 0))
+        canvas.paste(resized_subject, (paste_x, paste_y), resized_subject)
+        
+        draw = ImageDraw.Draw(canvas)
+        
+        bg_color_sample = template.getpixel((10, 10))
+        mask_width = int(t_width * 0.65)
+        mask_height = int(t_height * 0.082)
+        draw.rectangle([0, 0, mask_width, mask_height], fill=bg_color_sample)
+        
+        base_font_unit = int(t_height / 1000)
+        
+        font_welcome = get_custom_font("regular", size=base_font_unit * 42)
+        font_name = get_custom_font("bold", size=base_font_unit * 38)
+        font_role = get_custom_font("regular", size=base_font_unit * 23)
+        font_qual = get_custom_font("italic", size=base_font_unit * 21)
+        
+        start_x = int(t_width * (text_x_pct / 100))
+        start_y = int(t_height * (text_y_pct / 100))
+        w_start_x = int(t_width * (welcome_x_pct / 100))
+        w_start_y = int(t_height * (welcome_y_pct / 100))
+        
+        line_spacing_1 = int(base_font_unit * 46)
+        line_spacing_2 = int(base_font_unit * 28)
+        
+        text_color = (31, 41, 55, 255)
+        
+        draw.text((w_start_x, w_start_y), user_welcome, font=font_welcome, fill=text_color)
+        draw.text((start_x, start_y), user_name, font=font_name, fill=text_color)
+        draw.text((start_x, start_y + line_spacing_1), user_role, font=font_role, fill=text_color)
+        draw.text((start_x, start_y + line_spacing_1 + line_spacing_2), user_qual, font=font_qual, fill=text_color)
+        
+        final_output = canvas.convert("RGB")
+        
+        # 5. Fixed-Viewport Live Delivery Screen Frame Panel
+        with col_preview:
+            st.subheader("🖥️ Production Canvas Preview")
+            st.image(final_output, use_container_width=True)
+            
+            buffer = io.BytesIO()
+            final_output.save(buffer, format="JPEG", quality=98)
+            byte_arr = buffer.getvalue()
+            
+            st.write("")
+            st.download_button(
+                label="📥 Download Production Onboarding Asset",
+                data=byte_arr,
+                file_name=f"onboarding_{user_name.replace(' ', '_')}.jpg",
+                mime="image/jpeg",
+                use_container_width=True
+            )
+    except Exception as image_engine_error:
+        with col_preview:
+            st.error(f"❌ Composite Engine Error: {image_engine_error}")
+            st.info("Check your asset dimensions or font files to clear this track.")
 else:
     with col_preview:
         st.subheader("🖥️ Production Canvas Preview")
