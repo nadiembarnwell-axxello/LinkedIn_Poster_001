@@ -1,30 +1,30 @@
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
-from rembg import remove
 import io
 import os
 import platform
 
-# 🎛️ GLOBAL CONFIGURATION CONSTANT
-# Adjust this number to move the cut line: Higher moves it DOWN, Lower moves it UP.
-LOCKED_CROP_PCT = 84.6 
-
-# Try loading branding assets for UI layout framing
-logo_main_path = "Axxello Only 1x3.png"
-logo_icon_path = "AXP Logo XX.jpg"
-
-logo_main = Image.open(logo_main_path) if os.path.exists(logo_main_path) else None
-logo_icon = Image.open(logo_icon_path) if os.path.exists(logo_icon_path) else "🎨"
-
-# 1. Branded Page Configuration & Compact Layout Rules
+# 1. Page Configuration MUST be the absolute first Streamlit command executed
 st.set_page_config(
     page_title="Axxello Onboarding Studio Pro", 
-    page_icon=logo_icon,
+    page_icon="🎨",
     layout="wide", 
     initial_sidebar_state="collapsed"
 )
 
-# Custom Corporate CSS Injection to match branding colors and layout parameters
+# 🎛️ GLOBAL CONFIGURATION CONSTANT
+LOCKED_CROP_PCT = 84.6 
+
+# Try loading branding assets safely without breaking the boot cycle
+logo_main_path = "Axxello Only 1x3.png"
+logo_main = None
+if os.path.exists(logo_main_path):
+    try:
+        logo_main = Image.open(logo_main_path)
+    except:
+        pass
+
+# Custom Corporate CSS Injection
 st.markdown("""
     <style>
     .block-container {
@@ -40,7 +40,6 @@ st.markdown("""
     hr { margin: 8px 0 !important; border-top: 1px solid #E5E7EB; }
     .stFileUploader { margin-bottom: -10px; }
     
-    /* Branded Primary Action Action Button styling */
     div.stButton > button { 
         border-radius: 6px; 
         height: 2.8em; 
@@ -54,7 +53,6 @@ st.markdown("""
         background-color: #B91C1C !important;
     }
     
-    /* Clean Tab Navigation Bar design */
     .stTabs [data-baseweb="tab"] {
         font-weight: 700 !important;
         color: #4B5563 !important;
@@ -105,10 +103,10 @@ def get_custom_font(style="regular", size=24):
     if system == "Windows":
         font_dir = "C:\\Windows\\Fonts\\"
         font_map = {"regular": "arial.ttf", "bold": "arialbd.ttf", "italic": "ariali.ttf"}
-    elif system == "Darwin": # macOS
+    elif system == "Darwin": 
         font_dir = "/Library/Fonts/"
         font_map = {"regular": "Arial.ttf", "bold": "Arial Bold.ttf", "italic": "Arial Italic.ttf"}
-    else: # Linux Cloud Fallback
+    else: 
         font_dir = "/usr/share/fonts/truetype/dejavu/"
         font_map = {"regular": "DejaVuSans.ttf", "bold": "DejaVuSans-Bold.ttf", "italic": "DejaVuSans-Oblique.ttf"}
     try: return ImageFont.truetype(font_dir + font_map[style], size)
@@ -151,7 +149,7 @@ with col_controls:
 
     with tab_image:
         enable_bg_removal = st.checkbox("Activate AI Background Removal Pipeline", value=True)
-        edge_sharpness = st.slider("Edge Sharpness Filter (Cutout Trim)", 1, 255, 128, help="Higher values snap away semi-transparent or blurry edge pixels.")
+        edge_sharpness = st.slider("Edge Sharpness Filter (Cutout Trim)", 1, 255, 128)
         scale_factor = st.slider("Subject Scale Multiplier", 0.1, 2.5, 1.0, 0.05)
         
         col_ox, col_oy = st.columns(2)
@@ -170,12 +168,13 @@ if template_file and new_photo_file:
     
     current_photo_id = f"{new_photo_file.name}_{new_photo_file.size}"
     
-    # SMART CACHING LAYER: Runs the AI background extraction EXACTLY ONCE upon upload
     if "cached_photo_id" not in st.session_state or st.session_state.cached_photo_id != current_photo_id:
         raw_photo = Image.open(new_photo_file).convert("RGBA")
         if enable_bg_removal:
             with col_preview:
-                with st.spinner("🤖 Extracting profile background once..."):
+                with st.spinner("🤖 Initializing AI background isolation engines..."):
+                    # 🔥 LAZY IMPORT: Keeps the web app from loading blank on boot
+                    from rembg import remove 
                     processed_subject = remove(raw_photo)
         else:
             processed_subject = raw_photo
@@ -187,12 +186,10 @@ if template_file and new_photo_file:
 
     orig_w, orig_h = processed_subject.size
     
-    # Aspect Ratio Scaling Calculations
     target_width = int((t_width * 0.55) * scale_factor)
     target_height = int((orig_h * (target_width / orig_w)))
     resized_subject = processed_subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
     
-    # EDGE SHARPENING FILTER Execution
     r, g, b, a = resized_subject.split()
     sharp_alpha_lut = [255 if x >= edge_sharpness else 0 for x in range(256)]
     a = a.point(sharp_alpha_lut)
@@ -201,8 +198,6 @@ if template_file and new_photo_file:
     paste_x = int((t_width - target_width) / 2) + offset_x
     paste_y = int(t_height - target_height) + offset_y 
     
-    # LOCKED ARCH BOUNDARY CROP ENGINE
-    # Automatically restricts the photo bleeding over the exact gray shape border base.
     absolute_crop_y = int(t_height * (LOCKED_CROP_PCT / 100))
     current_image_bottom = paste_y + target_height
     
@@ -213,15 +208,12 @@ if template_file and new_photo_file:
         else:
             resized_subject = resized_subject.crop((0, 0, 1, 1))
             
-    # Compile Canvas Composite Base Structure Layer
     canvas = Image.new("RGBA", template.size)
     canvas.paste(template, (0, 0))
     canvas.paste(resized_subject, (paste_x, paste_y), resized_subject)
     
-    # Precision Typography Layering
     draw = ImageDraw.Draw(canvas)
     
-    # AUTOMATIC CONTENT ERASER MASK
     bg_color_sample = template.getpixel((10, 10))
     mask_width = int(t_width * 0.65)
     mask_height = int(t_height * 0.082)
@@ -229,13 +221,11 @@ if template_file and new_photo_file:
     
     base_font_unit = int(t_height / 1000)
     
-    # Initialize Relative Scale Fonts
     font_welcome = get_custom_font("regular", size=base_font_unit * 42)
     font_name = get_custom_font("bold", size=base_font_unit * 38)
     font_role = get_custom_font("regular", size=base_font_unit * 23)
     font_qual = get_custom_font("italic", size=base_font_unit * 21)
     
-    # Text Placement Alignment Points
     start_x = int(t_width * (text_x_pct / 100))
     start_y = int(t_height * (text_y_pct / 100))
     w_start_x = int(t_width * (welcome_x_pct / 100))
@@ -246,7 +236,6 @@ if template_file and new_photo_file:
     
     text_color = (31, 41, 55, 255)
     
-    # Render Clean Texts
     draw.text((w_start_x, w_start_y), user_welcome, font=font_welcome, fill=text_color)
     draw.text((start_x, start_y), user_name, font=font_name, fill=text_color)
     draw.text((start_x, start_y + line_spacing_1), user_role, font=font_role, fill=text_color)
@@ -254,7 +243,6 @@ if template_file and new_photo_file:
     
     final_output = canvas.convert("RGB")
     
-    # 5. Fixed-Viewport Live Delivery Screen Frame Panel
     with col_preview:
         st.subheader("🖥️ Production Canvas Preview")
         st.image(final_output, use_container_width=True)
