@@ -1,7 +1,3 @@
-
-### The Complete Code (`app.py`)
-
-```python
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from rembg import remove
@@ -279,5 +275,3 @@ else:
     with col_preview:
         st.subheader("🖥️ Production Canvas Preview")
         st.info("💡 Studio Open: Drag and drop your base template backdrop and a portrait profile image inside the upload boxes to build the graphic.")
-
-```
