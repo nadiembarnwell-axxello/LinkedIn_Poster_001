@@ -68,7 +68,7 @@ st.markdown("""
 col_header_logo, col_header_text = st.columns([1, 3.5])
 with col_header_logo:
     if logo_main:
-        st.image(logo_main, use_container_width=True)
+        st.image(logo_main, width='stretch')
     else:
         st.title("AXXELLO")
 with col_header_text:
@@ -159,11 +159,10 @@ with col_controls:
             offset_y = st.slider("Vertical Shifting (Y)", -500, 500, 50, 5)
 
     st.write("---")
-    st.button("🔄 Reset Studio Engine Workspace", use_container_width=True, on_click=reset_workspace_callback)
+    st.button("🔄 Reset Studio Engine Workspace", width='stretch', on_click=reset_workspace_callback)
 
 # 4. Processing & Composite Engine Pipeline
 if template_file and new_photo_file:
-    # Use a solid try-except handler so image crashes display visibly on-screen
     try:
         template = Image.open(template_file).convert("RGBA")
         t_width, t_height = template.size
@@ -174,7 +173,6 @@ if template_file and new_photo_file:
             raw_photo = Image.open(new_photo_file).convert("RGBA")
             if enable_bg_removal:
                 with col_preview:
-                    # Inform users transparently if the model downloads on the very first upload pass
                     with st.spinner("🤖 Extracting background... (Note: First-time run on the cloud will take ~60s to sync AI dependencies)"):
                         from rembg import remove 
                         processed_subject = remove(raw_photo)
@@ -248,7 +246,7 @@ if template_file and new_photo_file:
         # 5. Fixed-Viewport Live Delivery Screen Frame Panel
         with col_preview:
             st.subheader("🖥️ Production Canvas Preview")
-            st.image(final_output, use_container_width=True)
+            st.image(final_output, width='stretch')
             
             buffer = io.BytesIO()
             final_output.save(buffer, format="JPEG", quality=98)
@@ -260,12 +258,11 @@ if template_file and new_photo_file:
                 data=byte_arr,
                 file_name=f"onboarding_{user_name.replace(' ', '_')}.jpg",
                 mime="image/jpeg",
-                use_container_width=True
+                width='stretch'
             )
     except Exception as image_engine_error:
         with col_preview:
             st.error(f"❌ Composite Engine Error: {image_engine_error}")
-            st.info("Check your asset dimensions or font files to clear this track.")
 else:
     with col_preview:
         st.subheader("🖥️ Production Canvas Preview")
