@@ -3,6 +3,11 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import os
 import platform
+import urllib.request
+
+# ⚙️ REDIRECT AI PATHWAYS TO LOCAL WORKSPACE
+# Forces rembg to download and look for models directly inside your app directory
+os.environ["U2NET_HOME"] = os.path.join(os.getcwd(), ".u2net")
 
 # 1. Page Configuration MUST be the absolute first Streamlit command executed
 st.set_page_config(
@@ -63,6 +68,25 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Failsafe AI Model Downloader Engine
+def ensure_ai_model():
+    model_dir = os.path.join(os.getcwd(), ".u2net")
+    model_path = os.path.join(model_dir, "u2netp.onnx")
+    
+    if not os.path.exists(model_path):
+        os.makedirs(model_dir, exist_ok=True)
+        # Lightweight 4MB model url to save cloud resource footprint
+        url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+        with st.status("📥 Syncing AI Background Model Engine to Cloud Server...", expanded=True) as status:
+            try:
+                urllib.request.urlretrieve(url, model_path)
+                status.update(label="✅ AI Core Synced! Initializing Canvas...", state="complete")
+                return True
+            except Exception as download_error:
+                status.update(label=f"❌ Sync Failed: {download_error}", state="error")
+                return False
+    return True
 
 # 2. Executive Branded App Header Panel
 col_header_logo, col_header_text = st.columns([1, 3.5])
@@ -184,17 +208,17 @@ if template_file and new_photo_file:
                 raw_photo = raw_photo.resize((p_w, p_h), Image.Resampling.LANCZOS)
                 
             if enable_bg_removal:
-                with col_preview:
-                    with st.spinner("🤖 Executing background extractor..."):
-                        try:
+                # Run explicit visual check before loading the module session
+                if ensure_ai_model():
+                    with col_preview:
+                        with st.spinner("🤖 Isolate portrait mapping layers..."):
                             from rembg import remove, new_session 
                             if "rembg_session" not in st.session_state:
                                 st.session_state.rembg_session = new_session("u2netp")
                             processed_subject = remove(raw_photo, session=st.session_state.rembg_session)
-                        except Exception as ai_err:
-                            st.error(f"⚠️ AI Background Engine threw an error: {ai_err}")
-                            st.info("💡 Processing with original background instead to prevent freezing.")
-                            processed_subject = raw_photo
+                else:
+                    st.sidebar.error("AI Model Sync Missing. Bypassing background engine.")
+                    processed_subject = raw_photo
             else:
                 processed_subject = raw_photo
             
